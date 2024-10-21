@@ -1,32 +1,60 @@
-import java.awt.image.BufferedImage;
+import java.awt.BasicStroke;
+import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Point;
+import java.awt.RenderingHints;
+import java.awt.geom.RoundRectangle2D;
+import java.awt.image.BufferedImage;
 
 public class PuzzlePiece {
-    private BufferedImage image;
+    private final BufferedImage image;
     private int x, y;
-    private int correctX, correctY;
+    private final int correctX, correctY;
     private int row, col;
-    private int correctRow, correctCol;
+    private final int correctRow, correctCol;
+    private final int width, height;
+    private static final int CORNER_RADIUS = 10; // 圆角半径
 
-    public PuzzlePiece(BufferedImage image, int correctX, int correctY, int col, int row) {
+    public PuzzlePiece(BufferedImage image, int correctX, int correctY, int width, int height, int col, int row) {
         this.image = image;
         this.correctX = correctX;
         this.correctY = correctY;
-        this.x = col * image.getWidth();
-        this.y = row * image.getHeight();
+        this.width = width;
+        this.height = height;
         this.col = col;
         this.row = row;
         this.correctCol = col;
         this.correctRow = row;
+        this.x = col * width;
+        this.y = row * height;
     }
 
-    public void draw(Graphics g) { // 绘制拼图块
-        g.drawImage(image, x, y, null);
+    public void draw(Graphics g) {
+        if (image != null) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            
+            // 创建圆角矩形
+            RoundRectangle2D roundedRectangle = new RoundRectangle2D.Float(x, y, width, height, CORNER_RADIUS, CORNER_RADIUS);
+            
+            // 设置裁剪区域为圆角矩形
+            g2d.setClip(roundedRectangle);
+            
+            // 绘制图像
+            g2d.drawImage(image, x, y, null);
+            
+            // 绘制边框
+            g2d.setColor(Color.GRAY);
+            g2d.setStroke(new BasicStroke(1));
+            g2d.draw(roundedRectangle);
+            
+            g2d.dispose();
+        }
     }
 
-    public boolean contains(Point p) { // 判断点击是否在拼图块内
-        return p.x >= this.x && p.x < this.x + image.getWidth() && p.y >= this.y && p.y < this.y + image.getHeight();
+    public boolean contains(Point p) {
+        return p.x >= this.x && p.x < this.x + width && p.y >= this.y && p.y < this.y + height;
     }
 
     public void setLocation(int x, int y) {
@@ -34,9 +62,6 @@ public class PuzzlePiece {
         this.y = y;
     }
 
-    /*
-     * 获取拼图块的原始位置
-     */
     public int getX() {
         return x;
     }
@@ -45,9 +70,6 @@ public class PuzzlePiece {
         return y;
     }
 
-    /*
-     * 获取拼图块的当前位置
-     */
     public int getCorrectX() {
         return correctX;
     }
@@ -56,7 +78,6 @@ public class PuzzlePiece {
         return correctY;
     }
 
-    // 新增的方法
     public int getRow() {
         return row;
     }
@@ -79,5 +100,24 @@ public class PuzzlePiece {
 
     public void setCol(int col) {
         this.col = col;
+    }
+
+    public void setCurrentPosition(int row, int col) {
+        this.row = row;
+        this.col = col;
+        this.x = col * width;
+        this.y = row * height;
+    }
+
+    public int getWidth() {
+        return width;
+    }
+
+    public int getHeight() {
+        return height;
+    }
+
+    public BufferedImage getImage() {
+        return image;
     }
 }
