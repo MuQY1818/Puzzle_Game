@@ -25,6 +25,7 @@ public class ControlPanel extends JPanel {
     private final JLabel timerLabel;
     private Timer challengeTimer;
     private int remainingSeconds = 0;
+    private int challengeDuration = 0;
     private final JToggleButton toggleDragModeButton;
     private static final Color TOGGLE_OFF_COLOR = new Color(52, 152, 219);  // 蓝色
     private static final Color TOGGLE_ON_COLOR = new Color(189, 195, 199);  // 灰色
@@ -150,6 +151,7 @@ public class ControlPanel extends JPanel {
             case 2: remainingSeconds = 300; break;
             default: return; // 如果用户取消，则不开始挑战模式
         }
+        challengeDuration = remainingSeconds;
 
         timerLabel.setText("剩余时间: " + formatTime(remainingSeconds));
         game.randomizePuzzle();
@@ -179,6 +181,14 @@ public class ControlPanel extends JPanel {
     public void stopChallengeTimer() {
         if (challengeTimer != null) {
             challengeTimer.stop();
+        }
+    }
+
+    public void resetChallengeTimer() {
+        remainingSeconds = challengeDuration;
+        timerLabel.setText("剩余时间: " + formatTime(remainingSeconds));
+        if (challengeTimer != null) {
+            challengeTimer.start();
         }
     }
 

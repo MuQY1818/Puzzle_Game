@@ -38,7 +38,7 @@ public class PuzzleGame extends JFrame {
         setLayout(new BorderLayout(15, 15));
         getContentPane().setBackground(new Color(245, 245, 245));
 
-        loadImage("D:\\Code\\Project\\Puzzle_Game\\src\\main\\Images\\KeLi.png");
+        loadImage("D:\\Code\\Acwing Spring Boot\\Puzzle_Game\\src\\main\\Images\\piggy-bank-9070156_1280.jpg");
         
         gamePanel = new GamePanel(this, resizedImage, rows, cols);
         gamePanel.initialize();
@@ -141,6 +141,7 @@ public class PuzzleGame extends JFrame {
         puzzleSolvedHandled = false;
         if (controlPanel.isChallengeMode()) {
             controlPanel.stopChallengeTimer();
+            controlPanel.resetChallengeTimer();
         }
     }
     public void loadNewImage() {
