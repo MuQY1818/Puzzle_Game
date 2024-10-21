@@ -29,6 +29,7 @@ public class ControlPanel extends JPanel {
     private final JToggleButton toggleDragModeButton;
     private static final Color TOGGLE_OFF_COLOR = new Color(52, 152, 219);  // 蓝色
     private static final Color TOGGLE_ON_COLOR = new Color(189, 195, 199);  // 灰色
+    private JToggleButton toggleGameModeButton;
 
     public ControlPanel(PuzzleGame game) {
         this.game = game;
@@ -45,8 +46,11 @@ public class ControlPanel extends JPanel {
         
         toggleDragModeButton = createToggleButton("拖动模式", "点击模式");
         
+        toggleGameModeButton = createToggleButton("标准模式", "华容道模式");
+        
         topPanel.add(modeLabel);
         topPanel.add(toggleDragModeButton);
+        topPanel.add(toggleGameModeButton);
 
         // 创建中央按钮面板
         JPanel buttonPanel = new JPanel(new GridLayout(3, 2, 10, 10));
@@ -138,6 +142,15 @@ public class ControlPanel extends JPanel {
         challengeButton.addActionListener(e -> startChallengeMode());
         solveButton.addActionListener(e -> game.solvePuzzle());
         chooseImageButton.addActionListener(e -> game.loadNewImage());
+        toggleGameModeButton.addItemListener(e -> {
+            boolean isStandardMode = e.getStateChange() == ItemEvent.SELECTED;
+            game.setStandardMode(isStandardMode);
+            if (isStandardMode) {
+                solveButton.setEnabled(false);
+            } else {
+                solveButton.setEnabled(game.getRows() == 3 && game.getCols() == 3);
+            }
+        });
     }
 
     public void startChallengeMode() {

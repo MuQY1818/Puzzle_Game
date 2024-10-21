@@ -31,6 +31,7 @@ public class PuzzleGame extends JFrame {
     public static final int PUZZLE_WIDTH = 400;
     public static final int PUZZLE_HEIGHT = 300;
     private boolean puzzleSolvedHandled = false;
+    private boolean isStandardMode = false;
 
     public PuzzleGame() {
         setTitle("拼图游戏");
@@ -182,5 +183,22 @@ public class PuzzleGame extends JFrame {
 
     public GamePanel getGamePanel() {
         return gamePanel;
+    }
+
+    public boolean isStandardMode() {
+        return isStandardMode;
+    }
+
+    public void setStandardMode(boolean standardMode) {
+        isStandardMode = standardMode;
+        gamePanel.setStandardMode(standardMode);
+    }
+
+    public int getRows() {
+        return rows;
+    }
+
+    public int getCols() {
+        return cols;
     }
 }

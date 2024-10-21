@@ -26,6 +26,7 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
     private boolean isDraggingMode;
     private PuzzlePiece draggedPiece;
     private Point dragOffset;
+    private boolean isStandardMode = false;
 
     public GamePanel(PuzzleGame game, BufferedImage image, int rows, int cols) {
         this.game = game;
@@ -57,9 +58,15 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
                 puzzlePieces.add(piece);
             }
         }
-        emptyPiece = puzzlePieces.get(puzzlePieces.size() - 1);
-        emptyPiece = new PuzzlePiece(null, emptyPiece.getX(), emptyPiece.getY(), pieceWidth, pieceHeight, cols - 1, rows - 1);
-        puzzlePieces.set(puzzlePieces.size() - 1, emptyPiece);
+        
+        if (!isStandardMode) {
+            emptyPiece = puzzlePieces.get(puzzlePieces.size() - 1);
+            emptyPiece = new PuzzlePiece(null, emptyPiece.getX(), emptyPiece.getY(), pieceWidth, pieceHeight, cols - 1, rows - 1);
+            puzzlePieces.set(puzzlePieces.size() - 1, emptyPiece);
+        } else {
+            emptyPiece = null;
+        }
+        
         randomizePuzzle();
     }
 
@@ -108,12 +115,15 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
 
     private void handleMousePress(Point p) {
         for (PuzzlePiece piece : puzzlePieces) {
-            if (piece != emptyPiece && piece.contains(p)) {
-                if (isAdjacentToEmpty(piece)) {
+            if (piece.contains(p)) {
+                if (isStandardMode) {
+                    draggedPiece = piece;
+                    dragOffset = new Point(p.x - piece.getX(), p.y - piece.getY());
+                } else if (piece != emptyPiece && isAdjacentToEmpty(piece)) {
                     swapWithEmpty(piece);
                     repaint();
                     if (isPuzzleSolved()) {
-                        game.puzzleSolved(); // 只在这里调用一次
+                        game.puzzleSolved();
                     }
                 }
                 break;
@@ -247,12 +257,11 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
 
     @Override
     public void mouseReleased(MouseEvent e) {
-        if (isDraggingMode && draggedPiece != null) {
+        if (isStandardMode && draggedPiece != null) {
             Point p = e.getPoint();
             PuzzlePiece targetPiece = null;
             boolean isValidMove = false;
 
-            // 检查是否在拼图区域内
             if (p.x >= 0 && p.x < PuzzleGame.PUZZLE_WIDTH && p.y >= 0 && p.y < PuzzleGame.PUZZLE_HEIGHT) {
                 int targetCol = p.x / pieceWidth;
                 int targetRow = p.y / pieceHeight;
@@ -270,12 +279,11 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
                     game.puzzleSolved();
                 }
             } else {
-                // 如果不是有效移动，将拖动的拼图块返回原位
                 draggedPiece.setLocation(draggedPiece.getCol() * pieceWidth, draggedPiece.getRow() * pieceHeight);
             }
 
             draggedPiece = null;
-            repaint(); // 确保重绘以更新拼图块位置
+            repaint();
         }
     }
 
@@ -317,5 +325,10 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
         this.cols = cols;
         initializePuzzle();
         repaint();
+    }
+
+    public void setStandardMode(boolean standardMode) {
+        this.isStandardMode = standardMode;
+        initializePuzzle();
     }
 }
