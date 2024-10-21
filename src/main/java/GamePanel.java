@@ -2,6 +2,8 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Point;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
@@ -14,6 +16,13 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
+import java.awt.Graphics2D;
+import java.awt.AlphaComposite;
+import java.awt.Color;
+import java.awt.BasicStroke;
+
+import javax.swing.SwingUtilities;
+
 public class GamePanel extends JPanel implements MouseListener, MouseMotionListener {
     private final PuzzleGame game;
     private BufferedImage image;
@@ -23,10 +32,19 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
     private int pieceWidth;
     private int pieceHeight;
     private PuzzlePiece emptyPiece;
-    private boolean isDraggingMode;
+    private boolean isDraggingMode = false;
     private PuzzlePiece draggedPiece;
     private Point dragOffset;
     private boolean isStandardMode = false;
+    private Timer animationTimer;
+    private PuzzlePiece movingPiece;
+    private int targetX, targetY;
+    private static final int ANIMATION_SPEED = 5;
+    private static final int ANIMATION_DELAY = 10;
+    private PuzzlePiece selectedPiece;
+    private Timer glowTimer;
+    private float glowAlpha = 0f;
+    private static final float GLOW_SPEED = 0.1f;
 
     public GamePanel(PuzzleGame game, BufferedImage image, int rows, int cols) {
         this.game = game;
@@ -138,10 +156,49 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
     }
 
     private void swapWithEmpty(PuzzlePiece piece) {
-        int tempRow = piece.getRow();
-        int tempCol = piece.getCol();
-        piece.setCurrentPosition(emptyPiece.getRow(), emptyPiece.getCol());
+        if (isStandardMode) return;
+
+        int emptyRow = emptyPiece.getRow();
+        int emptyCol = emptyPiece.getCol();
+        
+        targetX = emptyCol * pieceWidth;
+        targetY = emptyRow * pieceHeight;
+        
+        movingPiece = piece;
+        
+        animationTimer = new Timer(ANIMATION_DELAY, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int dx = targetX - movingPiece.getX();
+                int dy = targetY - movingPiece.getY();
+                
+                if (Math.abs(dx) < ANIMATION_SPEED && Math.abs(dy) < ANIMATION_SPEED) {
+                    movingPiece.setLocation(targetX, targetY);
+                    finishSwap();
+                    ((Timer)e.getSource()).stop();
+                } else {
+                    movingPiece.setLocation(
+                        movingPiece.getX() + (int)Math.signum(dx) * ANIMATION_SPEED,
+                        movingPiece.getY() + (int)Math.signum(dy) * ANIMATION_SPEED
+                    );
+                }
+                repaint();
+            }
+        });
+        
+        animationTimer.start();
+    }
+
+    private void finishSwap() {
+        int tempRow = movingPiece.getRow();
+        int tempCol = movingPiece.getCol();
+        movingPiece.setCurrentPosition(emptyPiece.getRow(), emptyPiece.getCol());
         emptyPiece.setCurrentPosition(tempRow, tempCol);
+        movingPiece = null;
+        
+        if (isPuzzleSolved()) {
+            game.puzzleSolved();
+        }
     }
 
     public void solvePuzzle() {
@@ -178,14 +235,26 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
+        Graphics2D g2d = (Graphics2D) g.create();
+        
+        // 绘制所有非选中的拼图块
         for (PuzzlePiece piece : puzzlePieces) {
-            if (piece != draggedPiece && piece != emptyPiece) {
-                piece.draw(g);
+            if (piece != emptyPiece && piece != selectedPiece) {
+                piece.draw(g2d);
             }
         }
-        if (draggedPiece != null) {
-            draggedPiece.draw(g);
+        
+        // 绘制选中效果（如果在点击模式下）
+        if (isStandardMode && !isDraggingMode && selectedPiece != null) {
+            drawGlowEffect(g2d, selectedPiece);
         }
+        
+        // 最后绘制选中/拖动的拼图块，确保它在最上层
+        if (selectedPiece != null) {
+            selectedPiece.draw(g2d);
+        }
+        
+        g2d.dispose();
     }
 
     private void animateSolution(List<Point> solution) {
@@ -232,6 +301,8 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
     public void setDraggingMode(boolean isDraggingMode) {
         this.isDraggingMode = isDraggingMode;
         setCursor(isDraggingMode ? new Cursor(Cursor.HAND_CURSOR) : new Cursor(Cursor.DEFAULT_CURSOR));
+        // 可以添加日志输出来调试
+        System.out.println("Dragging mode set to: " + isDraggingMode);
     }
 
     @Override
@@ -241,15 +312,37 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
 
     @Override
     public void mousePressed(MouseEvent e) {
-        if (isDraggingMode) {
+        if (isStandardMode && !isDraggingMode) {
             Point p = e.getPoint();
+            PuzzlePiece clickedPiece = null;
             for (PuzzlePiece piece : puzzlePieces) {
-                if (piece.contains(p) && piece != emptyPiece) {
-                    draggedPiece = piece;
-                    dragOffset = new Point(p.x - piece.getX(), p.y - piece.getY());
+                if (piece.contains(p)) {
+                    clickedPiece = piece;
                     break;
                 }
             }
+            
+            if (clickedPiece != null) {
+                if (selectedPiece == null) {
+                    selectedPiece = clickedPiece;
+                    startGlowEffect();
+                } else if (selectedPiece == clickedPiece) {
+                    // 如果点击的是已选中的方块，取消选中
+                    selectedPiece = null;
+                    stopGlowEffect();
+                } else {
+                    swapPieces(selectedPiece, clickedPiece);
+                    selectedPiece = null;
+                    stopGlowEffect();
+                    if (isPuzzleSolved()) {
+                        game.puzzleSolved();
+                    }
+                }
+                repaint();
+            }
+        } else if (isStandardMode && isDraggingMode) {
+            // 处理拖动模式的逻辑
+            handleDragStart(e);
         } else {
             handleMousePress(e.getPoint());
         }
@@ -257,7 +350,7 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
 
     @Override
     public void mouseReleased(MouseEvent e) {
-        if (isStandardMode && draggedPiece != null) {
+        if (isStandardMode && isDraggingMode && selectedPiece != null) {
             Point p = e.getPoint();
             PuzzlePiece targetPiece = null;
             boolean isValidMove = false;
@@ -267,23 +360,24 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
                 int targetRow = p.y / pieceHeight;
                 
                 targetPiece = getPieceAt(targetCol, targetRow);
-                if (targetPiece != null && targetPiece != draggedPiece) {
+                if (targetPiece != null && targetPiece != selectedPiece) {
                     isValidMove = true;
                 }
             }
 
             if (isValidMove && targetPiece != null) {
-                swapPieces(draggedPiece, targetPiece);
+                swapPieces(selectedPiece, targetPiece);
                 repaint();
-                if (isPuzzleSolved()) {
-                    game.puzzleSolved();
-                }
             } else {
-                draggedPiece.setLocation(draggedPiece.getCol() * pieceWidth, draggedPiece.getRow() * pieceHeight);
+                selectedPiece.setLocation(selectedPiece.getCol() * pieceWidth, selectedPiece.getRow() * pieceHeight);
             }
 
-            draggedPiece = null;
+            selectedPiece = null;
             repaint();
+
+            if (isPuzzleSolved()) {
+                SwingUtilities.invokeLater(() -> game.puzzleSolved());
+            }
         }
     }
 
@@ -299,10 +393,10 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
 
     @Override
     public void mouseDragged(MouseEvent e) {
-        if (isDraggingMode && draggedPiece != null) {
+        if (isStandardMode && isDraggingMode && selectedPiece != null) {
             int newX = e.getX() - dragOffset.x;
             int newY = e.getY() - dragOffset.y;
-            draggedPiece.setLocation(newX, newY);
+            selectedPiece.setLocation(newX, newY);
             repaint();
         }
     }
@@ -315,8 +409,47 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
     private void swapPieces(PuzzlePiece piece1, PuzzlePiece piece2) {
         int tempRow = piece1.getRow();
         int tempCol = piece1.getCol();
-        piece1.setCurrentPosition(piece2.getRow(), piece2.getCol());
-        piece2.setCurrentPosition(tempRow, tempCol);
+        
+        Timer animationTimer = new Timer(10, null);
+        final int[] steps = {0};
+        final int totalSteps = 20;
+        
+        int startX1 = piece1.getX();
+        int startY1 = piece1.getY();
+        int startX2 = piece2.getX();
+        int startY2 = piece2.getY();
+        
+        int endX1 = piece2.getCol() * pieceWidth;
+        int endY1 = piece2.getRow() * pieceHeight;
+        int endX2 = piece1.getCol() * pieceWidth;
+        int endY2 = piece1.getRow() * pieceHeight;
+        
+        animationTimer.addActionListener(e -> {
+            steps[0]++;
+            float progress = (float) steps[0] / totalSteps;
+            
+            int currentX1 = (int) (startX1 + (endX1 - startX1) * progress);
+            int currentY1 = (int) (startY1 + (endY1 - startY1) * progress);
+            int currentX2 = (int) (startX2 + (endX2 - startX2) * progress);
+            int currentY2 = (int) (startY2 + (endY2 - startY2) * progress);
+            
+            piece1.setLocation(currentX1, currentY1);
+            piece2.setLocation(currentX2, currentY2);
+            
+            repaint();
+            
+            if (steps[0] >= totalSteps) {
+                piece1.setCurrentPosition(piece2.getRow(), piece2.getCol());
+                piece2.setCurrentPosition(tempRow, tempCol);
+                ((Timer)e.getSource()).stop();
+                
+                if (isPuzzleSolved()) {
+                    SwingUtilities.invokeLater(() -> game.puzzleSolved());
+                }
+            }
+        });
+        
+        animationTimer.start();
     }
 
     public void resetPuzzle(BufferedImage image, int rows, int cols) {
@@ -329,6 +462,64 @@ public class GamePanel extends JPanel implements MouseListener, MouseMotionListe
 
     public void setStandardMode(boolean standardMode) {
         this.isStandardMode = standardMode;
+        if (!isStandardMode) {
+            setDraggingMode(false);  // 在华容道模式下禁止拖动
+        }
         initializePuzzle();
+    }
+
+    private void startGlowEffect() {
+        if (glowTimer != null) {
+            glowTimer.stop();
+        }
+        glowTimer = new Timer(50, e -> {
+            glowAlpha += GLOW_SPEED;
+            if (glowAlpha > 1f) {
+                glowAlpha = 0f;
+            }
+            repaint();
+        });
+        glowTimer.start();
+    }
+
+    private void stopGlowEffect() {
+        if (glowTimer != null) {
+            glowTimer.stop();
+        }
+        glowAlpha = 0f;
+    }
+
+    private void drawGlowEffect(Graphics2D g2d, PuzzlePiece piece) {
+        int x = piece.getX();
+        int y = piece.getY();
+        int width = piece.getWidth();
+        int height = piece.getHeight();
+        
+        BufferedImage pieceImage = piece.getImage();
+        if (pieceImage != null) {
+            // 绘制原始图像
+            g2d.drawImage(pieceImage, x, y, width, height, null);
+            
+            // 绘制高亮效果
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, glowAlpha));
+            g2d.setColor(new Color(255, 255, 0, 100)); // 半透明的黄色
+            g2d.fillRect(x, y, width, height);
+            
+            // 绘制边框
+            g2d.setColor(Color.YELLOW);
+            g2d.setStroke(new BasicStroke(3f));
+            g2d.drawRect(x, y, width - 1, height - 1);
+        }
+    }
+
+    private void handleDragStart(MouseEvent e) {
+        Point p = e.getPoint();
+        for (PuzzlePiece piece : puzzlePieces) {
+            if (piece.contains(p)) {
+                selectedPiece = piece;
+                dragOffset = new Point(p.x - piece.getX(), p.y - piece.getY());
+                break;
+            }
+        }
     }
 }

@@ -44,9 +44,11 @@ public class ControlPanel extends JPanel {
         JLabel modeLabel = new JLabel("游戏模式：");
         modeLabel.setFont(new Font("微软雅黑", Font.BOLD, 16));  // 增大字体
         
-        toggleDragModeButton = createToggleButton("拖动模式", "点击模式");
+        toggleDragModeButton = createToggleButton("点击模式", "拖动模式");
+        toggleDragModeButton.setSelected(false);  // 确保初始状态为未选中
         
         toggleGameModeButton = createToggleButton("标准模式", "华容道模式");
+        toggleGameModeButton.setSelected(true); // 设置为选中状态
         
         topPanel.add(modeLabel);
         topPanel.add(toggleDragModeButton);
@@ -93,28 +95,16 @@ public class ControlPanel extends JPanel {
         return button;
     }
 
-    private JToggleButton createToggleButton(String onText, String offText) {
-        JToggleButton toggleButton = new JToggleButton(offText);
-        toggleButton.setFont(new Font("微软雅黑", Font.BOLD, 14));
-        toggleButton.setForeground(Color.WHITE);
-        toggleButton.setBackground(TOGGLE_OFF_COLOR);
-        toggleButton.setFocusPainted(false);
-        toggleButton.setBorderPainted(false);
-        toggleButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        toggleButton.addItemListener(e -> {
+    private JToggleButton createToggleButton(String offText, String onText) {
+        JToggleButton button = new JToggleButton(offText);
+        button.addItemListener(e -> {
             if (e.getStateChange() == ItemEvent.SELECTED) {
-                toggleButton.setText(onText);
-                toggleButton.setBackground(TOGGLE_ON_COLOR);
-                game.getGamePanel().setDraggingMode(true);
+                button.setText(onText);
             } else {
-                toggleButton.setText(offText);
-                toggleButton.setBackground(TOGGLE_OFF_COLOR);
-                game.getGamePanel().setDraggingMode(false);
+                button.setText(offText);
             }
         });
-
-        return toggleButton;
+        return button;
     }
 
     private void addListeners() {
@@ -147,10 +137,30 @@ public class ControlPanel extends JPanel {
             game.setStandardMode(isStandardMode);
             if (isStandardMode) {
                 solveButton.setEnabled(false);
+                toggleDragModeButton.setEnabled(true);  // 在标准模式下启用拖动模式切换
             } else {
                 solveButton.setEnabled(game.getRows() == 3 && game.getCols() == 3);
+                toggleDragModeButton.setEnabled(false);  // 在华容道模式下禁用拖动模式切换
+                toggleDragModeButton.setSelected(false);  // 确保拖动模式被关闭
+                game.getGamePanel().setDraggingMode(false);  // 确保游戏面板的拖动模式被关闭
             }
         });
+
+        toggleDragModeButton.addItemListener(e -> {
+            boolean isDragging = e.getStateChange() == ItemEvent.SELECTED;
+            game.getGamePanel().setDraggingMode(isDragging);
+            toggleDragModeButton.setText(isDragging ? "拖动模式" : "点击模式");
+        });
+
+        // 初始化时触发一次 toggleDragModeButton 的事件，以确保正确的初始状态
+        toggleDragModeButton.getItemListeners()[0].itemStateChanged(
+            new ItemEvent(toggleDragModeButton, ItemEvent.ITEM_STATE_CHANGED, 
+                          toggleDragModeButton, ItemEvent.DESELECTED));
+
+        // 初始化时触发一次 toggleGameModeButton 的事件，以确保正确的初始状态
+        toggleGameModeButton.getItemListeners()[0].itemStateChanged(
+            new ItemEvent(toggleGameModeButton, ItemEvent.ITEM_STATE_CHANGED, 
+                          toggleGameModeButton, ItemEvent.SELECTED));
     }
 
     public void startChallengeMode() {
@@ -162,7 +172,7 @@ public class ControlPanel extends JPanel {
             case 0: remainingSeconds = 60; break;
             case 1: remainingSeconds = 180; break;
             case 2: remainingSeconds = 300; break;
-            default: return; // 如果用户取消，则不开始挑战模式
+            default: return; // 如��用户取消，则不开始挑战模式
         }
         challengeDuration = remainingSeconds;
 
@@ -211,5 +221,10 @@ public class ControlPanel extends JPanel {
 
     public int getRemainingTime() {
         return remainingSeconds;
+    }
+
+    public void updateDragModeButton(boolean isDragging) {
+        toggleDragModeButton.setSelected(isDragging);
+        toggleDragModeButton.setText(isDragging ? "拖动模式" : "点击模式");
     }
 }

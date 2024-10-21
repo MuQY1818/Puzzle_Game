@@ -31,7 +31,7 @@ public class PuzzleGame extends JFrame {
     public static final int PUZZLE_WIDTH = 400;
     public static final int PUZZLE_HEIGHT = 300;
     private boolean puzzleSolvedHandled = false;
-    private boolean isStandardMode = false;
+    private boolean isStandardMode = true; // 将默认值改为 true
 
     public PuzzleGame() {
         setTitle("拼图游戏");
@@ -42,8 +42,13 @@ public class PuzzleGame extends JFrame {
         loadImage("D:\\Code\\Acwing Spring Boot\\Puzzle_Game\\src\\main\\Images\\piggy-bank-9070156_1280.jpg");
         
         gamePanel = new GamePanel(this, resizedImage, rows, cols);
+        gamePanel.setStandardMode(true);
+        gamePanel.setDraggingMode(false);  // 确保初始为非拖动模式
         gamePanel.initialize();
+        
         controlPanel = new ControlPanel(this);
+        // 确保 ControlPanel 的按钮状态与 GamePanel 的状态一致
+        controlPanel.updateDragModeButton(false);
         
         originalImageLabel = new JLabel(new ImageIcon(resizedImage));
         originalImageLabel.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 1));
@@ -119,16 +124,18 @@ public class PuzzleGame extends JFrame {
         }
         puzzleSolvedHandled = true;
 
-        if (controlPanel.isChallengeMode()) {
-            int remainingTime = controlPanel.getRemainingTime();
-            JOptionPane.showMessageDialog(this, "恭喜你在挑战模式下完成拼图！\n剩余时间: " + formatTime(remainingTime), "成功", JOptionPane.INFORMATION_MESSAGE);
-            controlPanel.stopChallengeTimer();
-        } else {
-            JOptionPane.showMessageDialog(this, "恭喜你完成拼图！", "成功", JOptionPane.INFORMATION_MESSAGE);
-        }
+        SwingUtilities.invokeLater(() -> {
+            if (controlPanel.isChallengeMode()) {
+                int remainingTime = controlPanel.getRemainingTime();
+                JOptionPane.showMessageDialog(this, "恭喜你在挑战模式下完成拼图！\n剩余时间: " + formatTime(remainingTime), "成功", JOptionPane.INFORMATION_MESSAGE);
+                controlPanel.stopChallengeTimer();
+            } else {
+                JOptionPane.showMessageDialog(this, "恭喜你完成拼图！", "成功", JOptionPane.INFORMATION_MESSAGE);
+            }
 
-        puzzleSolvedHandled = false;
-        gamePanel.resetGame();
+            puzzleSolvedHandled = false;
+            gamePanel.resetGame();
+        });
     }
 
     private String formatTime(int seconds) {
