@@ -39,7 +39,7 @@ public class PuzzleGame extends JFrame {
         setLayout(new BorderLayout(15, 15));
         getContentPane().setBackground(new Color(245, 245, 245));
 
-        loadImage("D:\\Code\\Acwing Spring Boot\\Puzzle_Game\\src\\main\\Images\\piggy-bank-9070156_1280.jpg");
+        loadImage("/images/piggy-bank-9070156_1280.jpg");
         
         gamePanel = new GamePanel(this, resizedImage, rows, cols);
         gamePanel.setStandardMode(true);
@@ -77,7 +77,12 @@ public class PuzzleGame extends JFrame {
 
     private void loadImage(String imagePath) {
         try {
-            originalImage = ImageIO.read(new File(imagePath));
+            // 使用类加载器加载资源
+            java.net.URL imageUrl = getClass().getResource(imagePath);
+            if (imageUrl == null) {
+                throw new IOException("找不到图片资源: " + imagePath);
+            }
+            originalImage = ImageIO.read(imageUrl);
             resizeImage();
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, "加载图像失败: " + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
